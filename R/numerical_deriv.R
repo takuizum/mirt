@@ -126,21 +126,25 @@ numerical_deriv <- function(f, par, ...,  delta = 1e-5, gradient = TRUE, type = 
         np <- length(par)
         hess <- matrix(0, np, np)
         if(is.null(dots$ObJeCtIvE)) fx <- f(par, ...) else fx <- dots$ObJeCtIvE
-        fx1 <- numeric(np)
-        for(i in seq_len(np)){
+        for(kappa in seq_len(np)){ # diagonal element
             tmp <- par
-            tmp[i] <- tmp[i] + complex(imaginary = delta)
-            fx1[i] <- Im(f(tmp, ...)) / delta
+            tmp[kappa] <- tmp[kappa] + complex(imaginary = delta)
+            hess[kappa, kappa] <- 2 * (fx - Re(f(tmp, ...))) / delta^2
         }
-        for(i in seq_len(np)){
-            for(j in i:np){
-                fx1x2 <- par
-                fx1x2[i] <- fx1x2[i] + complex(imaginary = delta)
-                fx1x2[j] <- fx1x2[j] + complex(imaginary = delta)
-                hess[i, j] <- hess[j, i] <- Im(f(fx1x2, ...) - fx1[i] - fx1[j] + fx) / (delta^2)
+        lambda <- 1
+        kappa <- np - 1
+        while(kappa > 0){
+            for(phi in 1:kappa){
+                img_vec <- logical(np)
+                img_vec[phi:(phi+lambda)] <- TRUE
+                tmp <- par
+                tmp[img_vec] <- tmp[img_vec] + complex(imaginary = delta)
+                hess[phi, phi+lambda] <- hess[phi+lambda, phi] <- (2 * (fx - Re(f(tmp, ...))) / delta^2 - sum(hess[img_vec, img_vec])) / 2
             }
+            kappa <- kappa - 1
+            lambda <- lambda + 1
         }
-        (hess + t(hess))/2
+        hess
     }
     richardson <- function(par, f, delta, r = 4L, ...){
         R0 <- R1 <- matrix(0, length(par), r)
