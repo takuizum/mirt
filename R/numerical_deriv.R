@@ -9,7 +9,8 @@
 #' @param delta the term used to perturb the \code{f} function. Default is 1e-5
 #' @param gradient logical; compute the gradient terms? If FALSE then the Hessian is computed instead
 #' @param type type of difference to compute. Can be either \code{'forward'} for the forward difference,
-#'   \code{'central'} for the central difference, or \code{'Richardson'} for the Richardson extrapolation (default).
+#'   \code{'central'} for the central difference, \code{'complex'} for the complex step method, 
+#'   or \code{'Richardson'} for the Richardson extrapolation (default).
 #'   Backward difference is achieved by supplying a negative \code{delta} value with \code{'forward'}.
 #'   When \code{type = 'Richardson'}, the default value of \code{delta} is increased to \code{delta * 1000} for the
 #'   Hessian and \code{delta * 10} for the gradient to provide a reasonable perturbation starting
@@ -28,12 +29,14 @@
 #' (actual <- c(9 * par[1]^2, -8 * par[2]))
 #' numerical_deriv(f, par, type = 'forward')
 #' numerical_deriv(f, par, type = 'central')
+#' numerical_deriv(f, par, type = 'complex', delta = 1e-20)
 #' numerical_deriv(f, par, type = 'Richardson') # default
 #'
 #' # Hessian = h11 -> 18 * x, h22 -> -8, h12 -> h21 -> 0
 #' (actual <- matrix(c(18 * par[1], 0, 0, -8), 2, 2))
 #' numerical_deriv(f, par, type = 'forward', gradient = FALSE)
 #' numerical_deriv(f, par, type = 'central', gradient = FALSE)
+#' numerical_deriv(f, par, type = 'complex', gradient = FALSE)
 #' numerical_deriv(f, par, type = 'Richardson', gradient = FALSE) # default
 #'
 #' }
@@ -105,6 +108,40 @@ numerical_deriv <- function(f, par, ...,  delta = 1e-5, gradient = TRUE, type = 
         }
         (hess + t(hess))/2
     }
+    # Complex method
+    complex_difference <- function(par, f, delta, ...) {
+        dots <- list(...)
+        np <- length(par)
+        g <- numeric(np)
+        if(is.null(dots$ObJeCtIvE)) fx <- f(par, ...) else fx <- dots$ObJeCtIvE
+        for(i in seq_len(np)){
+            p <- par
+            p[i] <- p[i] + complex(imaginary = delta)
+            g[i] <- Im(f(p, ...) - fx) / delta
+        }
+        g
+    }
+    complex_difference2 <- function(par, f, delta, ...){
+        dots <- list(...)
+        np <- length(par)
+        hess <- matrix(0, np, np)
+        if(is.null(dots$ObJeCtIvE)) fx <- f(par, ...) else fx <- dots$ObJeCtIvE
+        fx1 <- numeric(np)
+        for(i in seq_len(np)){
+            tmp <- par
+            tmp[i] <- tmp[i] + complex(imaginary = delta)
+            fx1[i] <- f(tmp, ...)
+        }
+        for(i in seq_len(np)){
+            for(j in i:np){
+                fx1x2 <- par
+                fx1x2[i] <- fx1x2[i] + complex(imaginary = delta)
+                fx1x2[j] <- fx1x2[j] + complex(imaginary = delta)
+                hess[i, j] <- hess[j, i] <- Im(f(fx1x2, ...) - fx1[i] - fx1[j] + fx) / (delta^2)
+            }
+        }
+        (hess + t(hess))/2
+    }
     richardson <- function(par, f, delta, r = 4L, ...){
         R0 <- R1 <- matrix(0, length(par), r)
         R0[, 1L] <- central_difference(par=par, f=f, delta=delta, ...)
@@ -144,6 +181,9 @@ numerical_deriv <- function(f, par, ...,  delta = 1e-5, gradient = TRUE, type = 
     } else if(type == 'Richardson'){
         ret <- if(gradient) richardson(par=par, f=f, delta=delta*10, ...)
         else richardson2(par=par, f=f, delta=delta*1000, ...)
+    } else if(type == 'complex'){
+        ret <- if(gradient) complex_difference(par=par, f=f, delta=delta, ...)
+        else complex_difference2(par=par, f=f, delta=delta, ...)
     }
     ret
 }
