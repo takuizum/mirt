@@ -117,7 +117,7 @@ numerical_deriv <- function(f, par, ...,  delta = 1e-5, gradient = TRUE, type = 
         for(i in seq_len(np)){
             p <- par
             p[i] <- p[i] + complex(imaginary = delta)
-            g[i] <- Im(f(p, ...) - fx) / delta
+            g[i] <- Im(f(p, ...)) / delta
         }
         g
     }
@@ -130,7 +130,7 @@ numerical_deriv <- function(f, par, ...,  delta = 1e-5, gradient = TRUE, type = 
         for(i in seq_len(np)){
             tmp <- par
             tmp[i] <- tmp[i] + complex(imaginary = delta)
-            fx1[i] <- f(tmp, ...)
+            fx1[i] <- Im(f(tmp, ...)) / delta
         }
         for(i in seq_len(np)){
             for(j in i:np){
