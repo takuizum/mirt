@@ -1431,6 +1431,9 @@ DerivativePriors <- function(x, grad, hess){
         lval <- log(val)
         mu <- x@prior_1[ind]
         s <- x@prior_2[ind]
+        # Derivatives of the lognormal log-prior -log(val) - (log(val)-mu)^2/(2*s^2);
+        # the Hessian's third term is + (log(val)-mu)/(val^2*s^2), as verified by
+        # symbolic differentiation (sympy).
         g <- -(lval - mu)/(val * s^2) - 1/val
         h <- 1/(val^2) - 1/(val^2 * s^2) + (lval - mu)/(val^2 * s^2)
         grad[ind] <- grad[ind] + g

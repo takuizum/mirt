@@ -1625,6 +1625,8 @@ static void d_priors(vector<double> &grad, NumericMatrix &hess, const int &ind,
         const double lval = log(val);
         const double p2 = prior_2*prior_2;
         const double v2 = val*val;
+        // Lognormal prior derivatives; the Hessian's third term is + (see
+        // DerivativePriors in R/utils.R). Verified symbolically (sympy).
         g = -(lval - prior_1)/(val * p2) - 1.0/val;
         h = 1.0/v2 - 1.0/(v2 * p2) + (lval - prior_1)/(v2 * p2);
     } else if(prior_type == 3){
