@@ -2336,6 +2336,17 @@ BL.LL <- function(p, est, longpars, pars, ngroups, J, Theta, PrepList, specific,
                                CUSTOM.IND=CUSTOM.IND, full=full, Etable=FALSE, omp_threads=omp_threads))
         LL <- LL + sum(Data$Freq[[g]] * logexpected, na.rm = TRUE)
     }
+    LP <- 0
+    if(length(lrPars)){
+        if(lrPars@any.prior)
+            LP <- LL.Priors(x=lrPars, LL=LP)
+    }
+    for(g in seq_len(ngroups)){
+        for(i in seq_len(length(pars2[[g]])))
+            if(pars2[[g]][[i]]@any.prior)
+                LP <- LL.Priors(x=pars2[[g]][[i]], LL=LP)
+    }
+    LL <- LL + LP
     LL
 }
 
