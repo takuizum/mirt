@@ -1432,7 +1432,7 @@ DerivativePriors <- function(x, grad, hess){
         mu <- x@prior_1[ind]
         s <- x@prior_2[ind]
         g <- -(lval - mu)/(val * s^2) - 1/val
-        h <- 1/(val^2) - 1/(val^2 * s^2) - (lval - mu)/(val^2 * s^2)
+        h <- 1/(val^2) - 1/(val^2 * s^2) + (lval - mu)/(val^2 * s^2)
         grad[ind] <- grad[ind] + g
         if(length(val) == 1L) hess[ind, ind] <- hess[ind, ind] + h
         else diag(hess[ind, ind]) <- diag(hess[ind, ind]) + h
