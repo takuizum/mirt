@@ -1461,6 +1461,9 @@ DerivativePriors <- function(x, grad, hess){
         val <- ifelse(val > 1-1e-10, 1-1e-10, val)
         a <- x@prior_1[ind]
         b <- x@prior_2[ind]
+        # Logit-scale derivatives of the log-prior (a-1)*log(val) + (b-1)*log(1-val)
+        # with val = plogis(eta); verified by symbolic differentiation (sympy):
+        # d/deta = (a-1)*(1-val) - (b-1)*val, d2/deta2 = -(a+b-2)*val*(1-val).
         g <- (a - 1) * (1 - val) - (b - 1) * val
         h <- -(a + b - 2) * val * (1 - val)
         grad[ind] <- grad[ind] + g

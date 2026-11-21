@@ -1638,6 +1638,8 @@ static void d_priors(vector<double> &grad, NumericMatrix &hess, const int &ind,
         val = 1 / (1 + exp(-val));
         if(val < 1e-10) val = 1e-10;
         else if(val > 1.0 - 1e-10) val = 1.0 - 1e-10;
+        // Logit-scale derivatives of the log-prior (see DerivativePriors in
+        // R/utils.R); verified by symbolic differentiation (sympy).
         g = (prior_1 - 1.0) * (1.0 - val) - (prior_2 - 1.0) * val;
         h = -(prior_1 + prior_2 - 2.0) * val * (1.0 - val);
     }
