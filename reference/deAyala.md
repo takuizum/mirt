@@ -1,0 +1,44 @@
+# Description of deAyala data
+
+Mathematics data from de Ayala (2009; pg. 14); 5 item dataset in table
+format.
+
+## References
+
+de Ayala, R. J. (2009). *The theory and practice of item response
+theory*. Guilford Press.
+
+## Author
+
+Phil Chalmers <rphilip.chalmers@gmail.com>
+
+## Examples
+
+``` r
+
+# \donttest{
+dat <- expand.table(deAyala)
+head(dat)
+#>   Item.1 Item.2 Item.3 Item.4 Item.5
+#> 1      0      0      0      0      0
+#> 2      0      0      0      0      0
+#> 3      0      0      0      0      0
+#> 4      0      0      0      0      0
+#> 5      0      0      0      0      0
+#> 6      0      0      0      0      0
+itemstats(dat)
+#> $overall
+#>      N mean.total sd.total std.alpha alpha SEM.alpha mean.r  sd.r
+#>  19601      2.912    1.434     0.603 0.608     0.898  0.233 0.074
+#> 
+#> $itemstats
+#>            N K  mean    sd cor_if_rm   smc alpha_if_rm
+#> Item.1 19601 2 0.887 0.316     0.246 0.070       0.605
+#> Item.2 19601 2 0.644 0.479     0.439 0.199       0.510
+#> Item.3 19601 2 0.566 0.496     0.416 0.177       0.523
+#> Item.4 19601 2 0.427 0.495     0.405 0.171       0.529
+#> Item.5 19601 2 0.387 0.487     0.312 0.100       0.581
+#> 
+
+# }
+```

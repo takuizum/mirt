@@ -1,0 +1,39 @@
+# Description of Science data
+
+A 4-item data set borrowed from `ltm` package in R, first example of the
+`grm()` function. See more complete documentation therein, as well as
+Karlheinz and Melich (1992).
+
+## References
+
+Karlheinz, R. and Melich, A. (1992). Euro-Barometer 38.1: *Consumer
+Protection and Perceptions of Science and Technology*. INRA (Europe),
+Brussels. \[computer file\]
+
+## Author
+
+Phil Chalmers <rphilip.chalmers@gmail.com>
+
+## Examples
+
+``` r
+
+# \donttest{
+itemstats(Science)
+#> $overall
+#>    N mean.total sd.total std.alpha alpha SEM.alpha mean.r  sd.r
+#>  392     11.668    2.003     0.603 0.598      1.27  0.275 0.098
+#> 
+#> $itemstats
+#>           N K  mean    sd cor_if_rm   smc alpha_if_rm
+#> Comfort 392 4 3.120 0.588     0.352 0.148       0.552
+#> Work    392 4 2.722 0.807     0.332 0.164       0.567
+#> Future  392 4 2.990 0.757     0.488 0.248       0.437
+#> Benefit 392 4 2.837 0.802     0.363 0.165       0.541
+#> 
+
+mod <- mirt(Science, 1)
+plot(mod, type = 'trace')
+
+# }
+```
