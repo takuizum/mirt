@@ -438,11 +438,12 @@ M2 <- function(obj, type="M2*", calcNull = TRUE, quadpts = NULL, theta_lim = c(-
         }
     }
     delta <- delta[ ,estpars, drop=FALSE]
-    tmp <- qr.Q(qr(delta), complete=TRUE)
-    if((ncol(delta) + 1L) > ncol(tmp))
+    qrd <- qr(delta)
+    tmp <- qr.Q(qrd, complete=TRUE)
+    if((qrd$rank + 1L) > ncol(tmp))
         stop('Statistic cannot be calculated (too few degrees of freedom)',
              call.=FALSE)
-    deltac <- tmp[,(ncol(delta) + 1L):ncol(tmp), drop=FALSE]
+    deltac <- tmp[,(qrd$rank + 1L):ncol(tmp), drop=FALSE]
     N <- nrow(extract.mirt(obj, 'data'))
     C2 <- try(deltac %*% solve(t(deltac) %*% Xi2 %*% deltac) %*% t(deltac), TRUE)
     if(is(C2, 'try-error'))
@@ -450,7 +451,7 @@ M2 <- function(obj, type="M2*", calcNull = TRUE, quadpts = NULL, theta_lim = c(-
     Ns.ratio <- do.call(c, lapply(ret, function(x) x$N.ratio))
     C2 <- outer(sqrt(Ns.ratio), sqrt(Ns.ratio)) * C2
     M2 <- abs(t(p - e) %*% C2 %*% (p - e))
-    df <- length(p) - extract.mirt(obj, 'nestpars')
+    df <- length(p) - qrd$rank
     # df <- qr(deltac)$rank
     newret <- list(M2=M2, df=df)
     newret$p <- 1 - pchisq(M2, df)
