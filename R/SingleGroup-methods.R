@@ -1815,7 +1815,6 @@ mirt2traditional <- function(x, vcov, nfact){
             newd[i-1L] <- -(ds[i] - ds[i-1L])
             delta_index[[i+nfact-1L]] <- c(which.a, tmp[,i-1L] + ncat + nfact)
         }
-        delta_index[[nfact+1L]] <- c(which.a, ncat + nfact + 2L)
         par <- c(x@par[1:nfact], newd)
         names(par) <- c(a.nms, paste0('b', 1:length(newd)))
         x@est <- x@est[c(1:nfact, (ncat+nfact+2L):length(x@est))]
