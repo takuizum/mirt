@@ -42,10 +42,11 @@ test_that('DCIRT', {
     mod2 <- mirt(dat_bm, 1, dentype = 'EHW', verbose=FALSE, technical=list(warn=FALSE))
     expect_equal(extract.mirt(mod2, 'logLik'), -12758.689, tolerance=1e-4)
 
-    res_bm <- mirt(dat_bm, model = 1, dentype='Davidian-6', verbose=FALSE)
-    expect_equal(extract.mirt(res_bm, 'logLik'), -12770.36, tolerance=1e-4)
+    res_bm <- mirt(dat_bm, model = 1, dentype='Davidian-6', verbose=FALSE,
+                   technical = list(NCYCLES = 2000))
+    expect_equal(extract.mirt(res_bm, 'logLik'), -12760.9, tolerance=1e-4)
     cfs <- coef(res_bm)$GroupPars
-    expect_equal(as.vector(cfs), c(0,1,1.331316,0.1005366,-0.3977847,0.3760913,-0.7119322,-0.8868316),
+    expect_equal(as.vector(cfs), c(0,1,0.9653625,-0.09592438,0.7786357,0.4559085,0.5802532,0.8639213),
                  tolerance=1e-1)
 
     cfs2 <- coef(res_bm, simplify=TRUE)
@@ -53,17 +54,17 @@ test_that('DCIRT', {
 
     fs1 <- fscores(res_bm)
     fs2 <- fscores(res_bm, use_dentype_estimate = TRUE)
-    expect_equal(fs1[1:3], c(-1.5086754, -0.8190934, -1.2681345), tolerance=1e-2)
-    expect_equal(fs2[1:3], c(-1.3837573, -0.8473137, -1.2122872), tolerance=1e-2)
+    expect_equal(fs1[1:3], c(-1.515917, -0.8160909, -1.239986), tolerance=1e-2)
+    expect_equal(fs2[1:3], c(-1.296097, -0.8790241, -1.131119), tolerance=1e-2)
     fs1 <- fscores(res_bm, method = 'EAPsum')
     fs2 <- fscores(res_bm, method = 'EAPsum', use_dentype_estimate = TRUE)
-    expect_equal(fs1[1:2], c(-1.4400054, -0.8319558), tolerance=1e-2)
-    expect_equal(fs2[1:2], c(-1.3283731, -0.8591158), tolerance=1e-2)
+    expect_equal(fs1[1:2], c(-1.437052, -0.8318919), tolerance=1e-2)
+    expect_equal(fs2[1:2], c(-1.235983, -0.8891791), tolerance=1e-2)
 
     out <- itemfit(res_bm)
     out2 <- itemfit(res_bm, use_dentype_estimate=TRUE)
-    expect_equal(out$S_X2[1:3], c(25.04979, 14.21541, 14.81132), tolerance=1e-2)
-    expect_equal(out2$S_X2[1:3], c(25.44766, 14.06284, 13.88462), tolerance=1e-2)
+    expect_equal(out$S_X2[1:3], c(25.15424, 14.06469, 14.99343), tolerance=1e-2)
+    expect_equal(out2$S_X2[1:3], c(25.81059, 13.567, 13.2452), tolerance=1e-2)
 
     pp <- plot(res_bm, type = 'Davidian')
     expect_class(pp, 'trellis')
@@ -149,35 +150,36 @@ test_that('DCIRT-MG', {
     load('testdata/dcirt3.rds')
 
     mod_configural <- multipleGroup(dat, 1, group = group, dentype='Davidian-6',
-                                    verbose = FALSE)
+                                    verbose = FALSE, technical = list(NCYCLES = 2000))
     # plot(mod_configural)
-    expect_equal(extract.mirt(mod_configural, 'logLik'), -23882.37, tolerance=1e-4)
+    expect_equal(extract.mirt(mod_configural, 'logLik'), -23876.92, tolerance=1e-4)
     cfs <- coef(mod_configural)$G2$GroupPars
-    expect_equal(as.vector(cfs), c(0,1,1.414418,0.08941072,-0.2462128,0.5657355,-0.8215269,-0.9705975), tolerance=1e-1)
+    expect_equal(as.vector(cfs), c(0,1,-0.1549642,-0.343533,-0.6518507,-0.8645502,-1.080704,-1.563228), tolerance=1e-1)
 
     cfs2 <- coef(mod_configural, simplify=TRUE)
     expect_equal(c(0, 1, cfs2$G2$Davidian_phis), as.vector(cfs))
 
     fs1 <- fscores(mod_configural)
     fs2 <- fscores(mod_configural, use_dentype_estimate = TRUE)
-    expect_equal(fs1[1:3], c(-1.510665,-0.8180199,-1.268329), tolerance=1e-1)
-    expect_equal(fs2[1:3], c(-1.385374,-0.8463518,-1.212446), tolerance=1e-1)
+    expect_equal(fs1[1:3], c(-1.515909,-0.8160966,-1.239991), tolerance=1e-1)
+    expect_equal(fs2[1:3], c(-1.296099,-0.8790115,-1.131138), tolerance=1e-1)
     fs1 <- fscores(mod_configural, method = 'EAPsum')
     fs2 <- fscores(mod_configural, method = 'EAPsum', use_dentype_estimate = TRUE)
-    expect_equal(fs1[1:2], c(-1.441303,-0.8309972), tolerance=1e-1)
-    expect_equal(fs2[1:2], c(-1.3294050, -0.8582679), tolerance=1e-1)
+    expect_equal(fs1[1:2], c(-1.437048,-0.8318939), tolerance=1e-1)
+    expect_equal(fs2[1:2], c(-1.235995, -0.8891666), tolerance=1e-1)
 
     out <- itemfit(mod_configural)
     out2 <- itemfit(mod_configural, use_dentype_estimate=TRUE)
-    expect_equal(out$G2$S_X2[1:3], c(10.11545,15.17313,8.989033), tolerance=1e-1)
-    expect_equal(out2$G2$S_X2[1:3], c(10.2253,15.41447,9.010604), tolerance=1e-1)
+    expect_equal(out$G2$S_X2[1:3], c(12.44107,15.70373,8.932793), tolerance=1e-1)
+    expect_equal(out2$G2$S_X2[1:3], c(10.21202,15.61334,8.992625), tolerance=1e-1)
 
     pp <- plot(mod_configural, type = 'Davidian')
     expect_class(pp, 'trellis')
 
     # not equated
-    mod_scalar0 <- multipleGroup(dat, 1, group = group, verbose=FALSE, dentype='Davidian-6',
-                                invariance=colnames(dat)[1:5])
+    # only the df and the plot are checked here, so the fit is not run to convergence
+    mod_scalar0 <- suppressWarnings(multipleGroup(dat, 1, group = group, verbose=FALSE,
+                                dentype='Davidian-6', invariance=colnames(dat)[1:5]))
     # coef(mod_scalar0, simplify=TRUE)
     # expect_equal(extract.mirt(mod_scalar0, 'logLik'), -23968.56, tolerance=1e-4)
     expect_equal(extract.mirt(mod_scalar0, 'df'), 67108760)
@@ -215,3 +217,42 @@ test_that('DCIRT-MG', {
 })
 
 
+
+test_that('DCIRT standardized EM', {
+
+    load('testdata/dcirt1.rds')
+    mod <- mirt(dat_bm, 1, dentype = 'Davidian-2', quadpts = 61, TOL = 1e-8,
+                technical = list(theta_lim = c(-6, 6), NCYCLES = 5000), verbose = FALSE)
+    expect_true(extract.mirt(mod, 'converged'))
+    # EM is monotone
+    LL <- mod@Internals$collectLL
+    LL <- LL[!is.na(LL)]
+    expect_true(all(diff(LL) > -1e-8))
+    # the latent density has mean 0 and variance 1 (standardized analytically)
+    phi <- unname(coef(mod)$GroupPars[1, c('PHI_1', 'PHI_2')])
+    mz <- integrate(function(z) z * dcurver::ddc(z, phi), -Inf, Inf)$value
+    sz <- sqrt(integrate(function(z) (z - mz)^2 * dcurver::ddc(z, phi), -Inf, Inf)$value)
+    grid <- seq(-6, 6, length.out = 61)
+    prior <- function(phi, mz, sz){
+        w <- dcurver::ddc(mz + sz * grid, phi)
+        w / sum(w)
+    }
+    w <- prior(phi, mz, sz)
+    expect_equal(as.vector(mod@Internals$Prior[[1L]]), w, tolerance = 1e-6)
+    expect_equal(sum(w * grid), 0, tolerance = 1e-6)
+    expect_equal(sum(w * grid^2), 1, tolerance = 1e-6)
+    # the solution is stationary in PHI: re-optimizing PHI with the item
+    # parameters fixed does not increase the marginal log-likelihood
+    P <- sapply(seq_len(ncol(dat_bm)), function(j) probtrace(extract.item(mod, j), grid)[,2])
+    Y <- as.matrix(dat_bm)
+    L <- exp(Y %*% t(log(P)) + (1 - Y) %*% t(log(1 - P)))
+    mll <- function(phi){
+        mz <- integrate(function(z) z * dcurver::ddc(z, phi), -Inf, Inf)$value
+        sz <- sqrt(integrate(function(z) (z - mz)^2 * dcurver::ddc(z, phi), -Inf, Inf)$value)
+        sum(log(L %*% prior(phi, mz, sz)))
+    }
+    expect_equal(mll(phi), extract.mirt(mod, 'logLik'), tolerance = 1e-8)
+    opt <- optim(phi, mll, method = 'BFGS', control = list(fnscale = -1, reltol = 1e-12))
+    expect_true(opt$value - mll(phi) < 1e-4)
+
+})
