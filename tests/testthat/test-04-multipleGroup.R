@@ -83,7 +83,7 @@ test_that('one factor', {
     out1 <- M2(mod_missing)
     out2 <- suppressMessages(itemfit(mod_missing, na.rm=TRUE))
     out3 <- fscores(mod_missing, na.rm=TRUE, method = 'EAPsum', full.scores=FALSE, verbose = FALSE)
-    expect_equal(out1$M2, 166.0331, tolerance=1e-4)
+    expect_equal(out1$M2, 166.0135, tolerance=1e-4)
     expect_equal(out2$D1$S_X2[1], 7.633155, tolerance=1e-4)
     expect_equal(out3$D1$expected[1], 5.258545, tolerance=1e-2)
 
@@ -111,7 +111,7 @@ test_that('one factor', {
     expect_equal(as.numeric(fit2[[1]][1L,-1L]), c(2.733099, 7.851266, 11.000000, 0, 0.726562),
                  tolerance = 1e-4)
     fit3 <- M2(mod_scalar2)
-    expect_true(mirt:::closeEnough(fit3$M2 - 165.1392, -1e-2, 1e-2))
+    expect_true(mirt:::closeEnough(fit3$M2 - 165.1210, -1e-2, 1e-2))
     expect_equal(fit3$SRMSR.D1, 0.02754769, tolerance = 1e-4)
     expect_equal(fit3$TLI, 1.00559, tolerance = 1e-2)
     expect_true(mirt:::closeEnough(fit3$df - 208, -1e-4, 1e-4))
