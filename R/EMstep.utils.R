@@ -191,7 +191,7 @@ Mstep <- function(pars, est, longpars, ngroups, J, gTheta, itemloc, PrepList, L,
             pick <- pars[[g]][[J+1L]]@parnum[-c(1L:2L)]
             pick2 <- 1L:length(pick) + length(pick) * (g-1L)
             pick3 <- pars[[g]][[J+1L]]@parnum
-            longpars[pick3[tmp]] <- c(optDC$mean_var[g, ], optDC$par[pick2])[tmp]
+            longpars[pick3[tmp]] <- c(pars[[g]][[J+1L]]@par[1L:2L], optDC$par[pick2])[tmp]
         }
     }
     if (dentype == "mixture") {
@@ -286,16 +286,18 @@ Mstep.LL.group <- function(pars, Theta, keep_vcov_PD){
 
 Mstep.DC.optim <- function(pars, J, gTheta, constrain) {
     ngroup <- length(pars)
-    orgphi <- std_rr <- vector("list", ngroup)
+    orgphi <- rr <- mv <- vector("list", ngroup)
     for(g in seq_len(ngroup)){
-        orgphi[[g]] <- ExtractGroupPars(pars[[g]][[J+1L]])$phi
-        std_rr[[g]] <- pars[[g]][[J+1L]]@rr
+        gp <- ExtractGroupPars(pars[[g]][[J+1L]])
+        orgphi[[g]] <- gp$phi
+        mv[[g]] <- c(gp$gmeans, gp$gcov[1L,1L])
+        rr[[g]] <- pars[[g]][[J+1L]]@rr
     }
     phi <- do.call(c, orgphi) # adjust based on constrain TODO
     optDC <- nlminb(phi, function (...) -Mstep.DC.LL_group(...),
                     gradient = function(...) -Mstep.DC.grad_group(...),
-                    gTheta=gTheta, rr = std_rr, constrain = constrain,
-                    orgphi=orgphi)
+                    gTheta=gTheta, rr = rr, constrain = constrain,
+                    orgphi=orgphi, mv=mv)
     # find equivalent set equal within [-pi/2, pi/2]
     # there's likely an analytical way to do this, but it's not important
     if(!all(optDC$par >= -pi/2 & optDC$par <= pi/2)){
@@ -306,23 +308,24 @@ Mstep.DC.optim <- function(pars, J, gTheta, constrain) {
         for(i in seq_len(nrow(all_signs))){
             signs <- all_signs[i, ]
             tmp_LL <- -Mstep.DC.LL_group(phi_s * signs, gTheta=gTheta,
-                                         rr = std_rr, constrain = constrain,
-                                         orgphi=orgphi)
+                                         rr = rr, constrain = constrain,
+                                         orgphi=orgphi, mv=mv)
             if(isTRUE(all.equal(tmp_LL, optDC$objective))) break
         }
         optDC$par <- phi_s * signs
     }
     optDC$value <- optDC$objective
-    optDC$mean_var <- do.call(rbind, lapply(std_rr, function(x) attr(x, 'mean_var')))
     optDC # return as long parameter vector for easier transition TODO
 }
 
-Mstep.DC.LL <- function (phi, Theta, rr) {
-    LL <- sum(rr * log(dcurver::ddc(Theta, phi)))
-    LL
+# Expected complete-data log-likelihood of the latent density: the standardized
+# Davidian density normalized on the quadrature grid, as used in the E-step
+Mstep.DC.LL <- function (phi, Theta, rr, mv) {
+    d <- DC_std_den(Theta, phi=phi, mean=mv[1L], var=mv[2L])
+    sum(rr * log(d / sum(d)))
 }
 
-Mstep.DC.LL_group <- function (phi, gTheta, rr, constrain, orgphi) {
+Mstep.DC.LL_group <- function (phi, gTheta, rr, constrain, orgphi, mv) {
     ind1 <- 1L
     for(g in seq_len(length(gTheta))){
         ind2 <- length(orgphi[[g]]) + ind1 - 1L
@@ -332,15 +335,21 @@ Mstep.DC.LL_group <- function (phi, gTheta, rr, constrain, orgphi) {
     # constrain.... TODO
     LL <- 0
     for(g in seq_len(length(gTheta)))
-        LL <- LL + Mstep.DC.LL(orgphi[[g]], gTheta[[g]], rr[[g]])
+        LL <- LL + Mstep.DC.LL(orgphi[[g]], gTheta[[g]], rr[[g]], mv[[g]])
     LL
 }
 
-Mstep.DC.grad <- function (phi, Theta, rr) {
-    colSums(dcurver::dc_grad(Theta, phi) * rr)
+# central differences (the moments, and hence the standardization, depend on phi)
+Mstep.DC.grad <- function (phi, Theta, rr, mv, h = 1e-6) {
+    vapply(seq_along(phi), function(i){
+        p1 <- p2 <- phi
+        p1[i] <- p1[i] + h
+        p2[i] <- p2[i] - h
+        (Mstep.DC.LL(p1, Theta, rr, mv) - Mstep.DC.LL(p2, Theta, rr, mv)) / (2 * h)
+    }, numeric(1L))
 }
 
-Mstep.DC.grad_group <- function (phi, gTheta, rr, constrain, orgphi) {
+Mstep.DC.grad_group <- function (phi, gTheta, rr, constrain, orgphi, mv) {
     ind1 <- 1L
     for(g in seq_len(length(gTheta))){
         ind2 <- length(orgphi[[g]]) + ind1 - 1L
@@ -350,7 +359,7 @@ Mstep.DC.grad_group <- function (phi, gTheta, rr, constrain, orgphi) {
     # constrain.... TODO
     grad <- c()
     for(g in seq_len(length(gTheta)))
-        grad <- c(grad, Mstep.DC.grad(orgphi[[g]], gTheta[[g]], rr[[g]]))
+        grad <- c(grad, Mstep.DC.grad(orgphi[[g]], gTheta[[g]], rr[[g]], mv[[g]]))
     grad
 }
 

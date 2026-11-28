@@ -507,6 +507,29 @@ ESTIMATION <- function(data, model, group, itemtype = NULL, guess = 0, upper = 1
             pars[[g]][[nitems + 1L]]@par[tmp] <- g - 1
         names(PrepList) <- Data$groupNames
     }
+    if(opts$dentype == 'Davidian' && !SUPPLIED_STARTS && !GenRandomPars){
+        # N(0,1) (PHI_1 = pi/2) is a stationary point of the standardized Davidian
+        # likelihood for every data set: the first-order changes of the density there are
+        # pure location/scale changes, which the standardization removes, and the chart
+        # is singular in PHI_2.. at PHI_1 = pi/2. Start from a small perturbation whose
+        # skewness has the sign of the total-score skewness instead.
+        for(g in seq_len(Data$ngroups)){
+            gp <- pars[[g]][[nitems + 1L]]
+            pick <- which(grepl('PHI_', names(gp@par)) & gp@est)
+            if(!length(pick)) next
+            TS <- rowSums(Data$data[Data$group == Data$groupNames[g], , drop=FALSE], na.rm=TRUE)
+            sgn <- if(isTRUE(mean((TS - mean(TS))^3) < 0)) -1 else 1
+            phi <- rep(pi/2, length(pick))
+            if(length(pick) == 1L){
+                phi[1L] <- sgn * (pi/2 - .2)
+            } else {
+                phi[1L] <- pi/2 - .2
+                phi[2L] <- -sgn * pi/4
+            }
+            gp@par[pick] <- phi
+            pars[[g]][[nitems + 1L]] <- gp
+        }
+    }
     constrain <- UpdateConstrain(pars=pars, constrain=constrain, invariance=invariance, nfact=Data$nfact,
                                  nLambdas=nLambdas, J=nitems, ngroups=Data$ngroups, PrepList=PrepList,
                                  method=opts$method, itemnames=PrepList[[1L]]$itemnames, model=model,

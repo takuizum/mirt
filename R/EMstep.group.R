@@ -308,7 +308,7 @@ EM.group <- function(pars, constrain, Ls, Data, PrepList, list, Theta, DERIV, so
                     pars[[g]][[J+1L]]@rrs <- rlist[[g]]$r3
                 } else {
                     pars[[g]][[J+1L]]@rr <- rlist[[g]]$r1g
-                    if(dentype == 'EHW' && g == 1L || dentype == "Davidian" ||
+                    if(dentype == 'EHW' && g == 1L ||
                        (dentype == 'custom' && pars[[g]][[J+1L]]@standardize))
                         pars[[g]][[J+1L]]@rr <- standardizeQuadrature(gTheta[[g]],
                                                         nq=pars[[g]][[J+1L]]@rr,
@@ -486,7 +486,7 @@ EM.group <- function(pars, constrain, Ls, Data, PrepList, list, Theta, DERIV, so
                                paste0(round(pickLLs, 3), collapse=', ')), call.=FALSE)
         }
         if(cycles > 1L && list$warn && !any(ANY.PRIOR) &&
-           list$method != 'MCEM' && !dentype %in% c('EHW', 'Davidian')){
+           list$method != 'MCEM' && dentype != 'EHW'){
             diff <- c(-Inf, na.omit(collectLL)) - c(na.omit(collectLL), Inf)
             if(any(diff[length(diff):ceiling(length(diff)*.9)] > .001))
                 warning(c('Log-likelihood was decreasing near the ML solution. EM method may be unstable.\n',

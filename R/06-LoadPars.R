@@ -976,12 +976,50 @@ Theta_mvtnorm_den <- function(obj, Theta){
     d
 }
 
+# Davidian curve density standardized analytically to the group mean and variance:
+# if Z has density h(z) = dcurver::ddc(z, phi) with moments (mu_Z, sigma_Z^2), then
+# theta = mu + sigma * (Z - mu_Z) / sigma_Z has density
+#   f(theta) = (sigma_Z / sigma) * h(mu_Z + sigma_Z * (theta - mu) / sigma)
+# with exact mean mu and variance sigma^2 for every phi (Woods & Lin, 2009).
 Theta_DC_den <- function(obj, Theta) {
     gpars <- ExtractGroupPars(obj)
-    phi <- gpars$phi
-    d <- dcurver::ddc(Theta, phi = gpars$phi)
-    d
+    DC_std_den(Theta, phi=gpars$phi, mean=gpars$gmeans, var=gpars$gcov[1L,1L])
 }
+
+DC_std_den <- function(Theta, phi, mean = 0, var = 1){
+    mom <- DC_moments(phi)
+    s <- sqrt(var)
+    z <- mom['mean'] + mom['sd'] * (Theta - mean) / s
+    mom['sd'] / s * dcurver::ddc(z, phi = phi)
+}
+
+# Mean and standard deviation of the Davidian curve density dcurver::ddc(., phi).
+# ddc(z)/dnorm(z) is the square of a degree-k polynomial (k <= 10), so Gauss-Hermite
+# quadrature with 24 nodes (exact for polynomials up to degree 47) gives the exact moments.
+DC_moments <- function(phi){
+    gh <- DC_GH_nodes()
+    w <- gh$w * dcurver::ddc(gh$x, phi = phi) / dnorm(gh$x)
+    w <- w / sum(w)
+    m <- sum(w * gh$x)
+    c(mean = m, sd = sqrt(sum(w * (gh$x - m)^2)))
+}
+
+DC_GH_nodes <- local({
+    nodes <- NULL
+    function(){
+        if(is.null(nodes)){
+            # Golub-Welsch for the probabilists' Hermite polynomials (weight dnorm)
+            n <- 24L
+            J <- matrix(0, n, n)
+            off <- sqrt(seq_len(n - 1L))
+            J[cbind(1L:(n-1L), 2L:n)] <- off
+            J[cbind(2L:n, 1L:(n-1L))] <- off
+            e <- eigen(J, symmetric = TRUE)
+            nodes <<- list(x = e$values, w = e$vectors[1L, ]^2)
+        }
+        nodes
+    }
+})
 
 Theta_discrete_den <- function(obj, Theta, mus = 0){
     if(length(Theta) == 1) return(1)
