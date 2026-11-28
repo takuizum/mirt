@@ -138,22 +138,19 @@ symbolicHessian_par <- function(x, Theta, dp1 = NULL, dp2 = NULL, P = NULL){
 }
 
 Deriv.mix <- function(x, estHess=FALSE){
-    phi2psi <- function(par){
-        E <- exp(par)
-        E / sum(E)
-    }
-    LL <- function(par, x){
-        phi <- x$par
-        phi[x$est] <- par
-        psi <- phi2psi(phi)
-        dmultinom(x$dat, prob=psi, log=TRUE)
-    }
+    # Multinomial log-likelihood of the expected class counts x$dat in the class
+    # log-odds phi (psi = softmax(phi)): sum(dat * log(psi)). The counts are expected
+    # values, not integers, so they must not be rounded (as dmultinom() does);
+    # otherwise the gradient does not respond to changes in the E-step (Oakes SEs).
+    E <- exp(x$par - max(x$par))
+    psi <- E / sum(E)
+    dat <- as.vector(x$dat)
+    n <- sum(dat)
     ret <- list(grad=numeric(length(x$par)),
                 hess=matrix(0, length(x$par), length(x$par)))
-    ret$grad[x$est] <- numerical_deriv(par=x$par[x$est], f=LL, x=x)
+    ret$grad[x$est] <- (dat - n * psi)[x$est]
     if(estHess && any(x$est))
-        ret$hess[x$est, x$est] <- numerical_deriv(par=x$par[x$est],
-                                                  f=LL, x=x, gradient=FALSE)
+        ret$hess[x$est, x$est] <- (-n * (diag(psi, length(psi)) - outer(psi, psi)))[x$est, x$est]
     ret
 }
 

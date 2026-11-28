@@ -523,14 +523,29 @@ EM.group <- function(pars, constrain, Ls, Data, PrepList, list, Theta, DERIV, so
                 h[ind1:ind2, ind1:ind2] <- pars[[group]][[i]]@hessian <- deriv$hess
                 ind1 <- ind2 + 1L
             }
-            deriv <- Deriv(x=pars[[group]][[i+1L]], CUSTOM.IND=CUSTOM.IND,
-                           Theta=gTheta[[group]], EM = TRUE,
-                           pars=pars[[group]], tabdata=Data$tabdatalong,
-                           freq=Data$Freq[[group]], prior=Prior[[group]],
-                           itemloc=itemloc,
-                           bfactor_info=if(dentype == 'bfactor')
-                               list(specific=specific, sitems=sitems, nfact=nfact) else NULL,
-                           estHess=TRUE)
+            if(dentype == 'mixture'){
+                # Mixture classes share every respondent, so the within-group observed
+                # information (EML2) does not apply. Use the complete-data information
+                # from the class-specific expected counts (@rr) instead; the missing
+                # information is added by the Oakes step below.
+                gp <- pars[[group]][[i+1L]]
+                deriv <- list(grad=numeric(length(gp@par)),
+                              hess=matrix(0, length(gp@par), length(gp@par)))
+                if(any(gp@est)){
+                    tmp <- .Call("dgroup", gp, gTheta[[group]], matrix(0), TRUE, FALSE, TRUE, TRUE)
+                    pick <- seq_len(ncol(tmp$hess))
+                    deriv$hess[pick, pick] <- tmp$hess
+                }
+            } else {
+                deriv <- Deriv(x=pars[[group]][[i+1L]], CUSTOM.IND=CUSTOM.IND,
+                               Theta=gTheta[[group]], EM = TRUE,
+                               pars=pars[[group]], tabdata=Data$tabdatalong,
+                               freq=Data$Freq[[group]], prior=Prior[[group]],
+                               itemloc=itemloc,
+                               bfactor_info=if(dentype == 'bfactor')
+                                   list(specific=specific, sitems=sitems, nfact=nfact) else NULL,
+                               estHess=TRUE)
+            }
             ind2 <- ind1 + length(deriv$grad) - 1L
             h[ind1:ind2, ind1:ind2] <- pars[[group]][[i]]@hessian <- deriv$hess
             ind1 <- ind2 + 1L
@@ -612,7 +627,9 @@ EM.group <- function(pars, constrain, Ls, Data, PrepList, list, Theta, DERIV, so
             is.latent <- grepl('MEAN_', names(shortpars)) | grepl('COV_', names(shortpars))
             if(length(lrPars))
                 is.latent[names(shortpars) %in% names(lrPars@est)] <- TRUE
-            missing_info[is.latent, is.latent] <- 0
+            # the latent block of complete_info is already the observed information
+            # (EML2), except for mixtures, whose complete_info is complete-data (see above)
+            if(dentype != 'mixture') missing_info[is.latent, is.latent] <- 0
             hess <- complete_info + missing_info
         }
         ret <- list(pars=pars, cycles = cycles, info=matrix(0), longpars=longpars, converge=converge,
