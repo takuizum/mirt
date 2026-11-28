@@ -130,3 +130,51 @@ test_that('syntax', {
 
 })
 
+
+test_that('lnorm prior derivatives', {
+
+    # Oakes SEs of a MAP fit are the inverse observed information of the log-posterior;
+    # with an lnorm prior on a1 they must match a numerical Hessian of logLik + logPrior
+    dat <- expand.table(LSAT7)
+    model <- 'F = 1-5
+              PRIOR = (1-5, a1, lnorm, .2, .3)'
+    mod <- mirt(dat, model, optimizer = 'NR', TOL = 1e-10, SE = TRUE,
+                SE.type = 'Oakes', verbose = FALSE)
+    sv <- mod2values(mod)
+    pick <- which(sv$est)
+    logpost <- function(p){
+        sv$value[pick] <- p
+        m <- mirt(dat, model, pars = sv, TOL = NaN, verbose = FALSE)
+        m@Fit$logLik + m@Fit$logPrior
+    }
+    p0 <- sv$value[pick]
+    h <- 1e-3
+    H <- matrix(0, length(p0), length(p0))
+    for(i in seq_along(p0)){
+        for(j in i:length(p0)){
+            e1 <- e2 <- numeric(length(p0))
+            e1[i] <- h
+            e2[j] <- h
+            H[i,j] <- H[j,i] <- (logpost(p0 + e1 + e2) - logpost(p0 + e1 - e2) -
+                                     logpost(p0 - e1 + e2) + logpost(p0 - e1 - e2)) / (4*h^2)
+        }
+    }
+    se_num <- sqrt(diag(solve(-H)))
+    expect_equal(unname(sqrt(diag(vcov(mod)))), se_num, tolerance = 1e-4)
+
+    # prior-only derivatives of the R implementation (DerivativePriors)
+    x <- extract.item(mod, 1)
+    Theta <- matrix(0)
+    x@dat <- matrix(0, 1, 2)
+    d <- Deriv(x, Theta)
+    lp <- function(p){
+        x@par <- p
+        LL.Priors(x, LL = 0)
+    }
+    a <- x@par[1]
+    g_num <- (lp(x@par + c(1e-5, 0, 0, 0)) - lp(x@par - c(1e-5, 0, 0, 0))) / 2e-5
+    h_num <- (lp(x@par + c(1e-4, 0, 0, 0)) - 2*lp(x@par) + lp(x@par - c(1e-4, 0, 0, 0))) / 1e-8
+    expect_equal(d$grad[1], g_num, tolerance = 1e-6)
+    expect_equal(d$hess[1,1], h_num, tolerance = 1e-5)
+
+})
