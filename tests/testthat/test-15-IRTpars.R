@@ -47,3 +47,32 @@ test_that('IRTpars', {
 
 })
 
+test_that('IRTpars gpcm delta-method SEs', {
+
+    # b_k = -(d_k - d_{k-1})/a with d_0 = 0 fixed; compare every b_k SE (b1 included)
+    # against the delta method applied to vcov()
+    mod <- mirt(Science, 1, 'gpcm', SE=TRUE, verbose=FALSE)
+    cfs <- coef(mod, IRTpars = TRUE, printSE = TRUE)
+    V <- vcov(mod)
+    for(j in seq_len(ncol(Science))){
+        it <- extract.item(mod, j)
+        nms <- names(it@parnum)
+        a <- it@par[nms == 'a1']
+        ds <- it@par[grepl('^d[0-9]+$', nms)]
+        lab <- paste0(nms, '.', it@parnum)
+        pa <- lab[nms == 'a1']
+        pd <- lab[grepl('^d[0-9]+$', nms)]
+        for(k in 2L:length(ds)){
+            if(k == 2L){
+                grad <- c((ds[k] - ds[k-1L])/a^2, -1/a)
+                ind <- c(pa, pd[k])
+            } else {
+                grad <- c((ds[k] - ds[k-1L])/a^2, 1/a, -1/a)
+                ind <- c(pa, pd[k-1L], pd[k])
+            }
+            se <- sqrt(drop(t(grad) %*% V[ind, ind] %*% grad))
+            expect_equal(unname(cfs[[j]]['SE', paste0('b', k-1L)]), unname(se), tolerance = 1e-6)
+        }
+    }
+
+})
