@@ -69,7 +69,7 @@ test_that('one factor', {
     set.seed(1)
     mod_mixture <- suppressWarnings(multipleGroup(dat, 1, itemtype = 'Rasch', GenRandomPars = TRUE,
                                  verbose = FALSE, dentype = 'mixture-2', SE=TRUE))
-    expect_equal(extract.mirt(mod_mixture, 'condnum'), 111.45, tolerance=1e-4)
+    expect_equal(extract.mirt(mod_mixture, 'condnum'), 122.6358, tolerance=1e-4)
     so <- summary(mod_mixture, verbose=FALSE)
     expect_equal(so[[1]]$class_proportion, .5104716, tolerance=1e-4)
     fs <- fscores(mod_mixture)
@@ -217,5 +217,70 @@ test_that('one factor', {
     expect_equal(unname(gmeans[2,]), c(-0.46614210, -0.65088349, 0.06840406), tolerance = 1e-2)
     so <- summary(mod_scalar, verbose=FALSE)
     expect_equal(so[[2]]$fcor[c(2,3,6)], c(0.3240661, 0.7799120, 0.1971916), tolerance = 1e-2)
+
+})
+
+test_that('mixture Oakes SEs', {
+
+    # Oakes SEs for dentype = 'mixture' must equal the inverse observed information of
+    # the marginal log-likelihood on mirt's quadrature grid (computed here directly)
+    set.seed(1234)
+    J <- 10; N <- 3000
+    a <- c(1.2, 0.9, 1.5, 1.1, 0.8, 1.3, 1.0, 1.4, 0.9, 1.2)
+    d <- c(-0.5, 0.3, 0, 1, -1, 0.5, -1.5, -2, 1.5, -2.5)
+    cls <- rbinom(N, 1, .35)
+    Theta <- matrix(ifelse(cls == 1, rnorm(N, 2.5, .5), rnorm(N)))
+    dat <- simdata(matrix(a), d, N, itemtype = 'dich', Theta = Theta)
+    items <- colnames(dat)
+    theta <- seq(-6, 6, length.out = 41)
+    Y <- as.matrix(dat)
+    # parameters: (a1, d) per item, then MEAN_1, COV_11, PI of class 2
+    mll <- function(p){
+        a <- p[seq(1, 2*J, 2)]; d <- p[seq(2, 2*J, 2)]
+        P <- plogis(outer(theta, a) + matrix(d, length(theta), J, byrow = TRUE))
+        w1 <- dnorm(theta); w1 <- w1/sum(w1)
+        w2 <- dnorm(theta, p[2*J+1], sqrt(p[2*J+2])); w2 <- w2/sum(w2)
+        pis <- c(1, exp(p[2*J+3])); pis <- pis/sum(pis)
+        L <- exp(Y %*% t(log(P)) + (1-Y) %*% t(log(1-P)))
+        sum(log(L %*% (pis[1]*w1 + pis[2]*w2)))
+    }
+    hessian <- function(p, h = 1e-4){
+        H <- matrix(0, length(p), length(p))
+        for(i in seq_along(p)){
+            for(j in i:length(p)){
+                e1 <- e2 <- numeric(length(p))
+                e1[i] <- h
+                e2[j] <- h
+                H[i,j] <- H[j,i] <- (mll(p + e1 + e2) - mll(p + e1 - e2) -
+                                         mll(p - e1 + e2) + mll(p - e1 - e2)) / (4*h^2)
+            }
+        }
+        H
+    }
+    # maximize on the log-variance scale, then polish with Newton steps
+    tr <- function(q) c(q[seq_len(2*J+1)], exp(q[2*J+2]), q[2*J+3])
+    q0 <- c(rbind(a, d), 2.5, log(.25), log(.35/.65))
+    opt <- optim(q0, function(q) mll(tr(q)), method = 'BFGS',
+                 control = list(fnscale = -1, reltol = 1e-14, maxit = 1000))
+    p_hat <- tr(opt$par)
+    for(i in 1:3) p_hat <- p_hat - solve(hessian(p_hat), # Newton polish on a numerical gradient
+        sapply(seq_along(p_hat), function(k){ e <- numeric(length(p_hat)); e[k] <- 1e-5
+            (mll(p_hat + e) - mll(p_hat - e)) / 2e-5 }))
+    inv <- c(items, 'free_means', 'free_var')
+    sv <- suppressWarnings(multipleGroup(dat, 1, itemtype = '2PL', dentype = 'mixture-2',
+                                         invariance = inv, pars = 'values'))
+    for(j in seq_len(J)){
+        sv$value[sv$item == items[j] & sv$name == 'a1'] <- p_hat[2*j - 1]
+        sv$value[sv$item == items[j] & sv$name == 'd'] <- p_hat[2*j]
+    }
+    gp <- sv$item == 'GROUP' & sv$group == 'MIXTURE_2'
+    sv$value[gp & sv$name %in% c('MEAN_1', 'COV_11', 'PI')] <- p_hat[2*J + 1:3]
+    mod <- suppressWarnings(multipleGroup(dat, 1, itemtype = '2PL', dentype = 'mixture-2',
+                         invariance = inv, pars = sv, quadpts = 41, TOL = NaN,
+                         SE = TRUE, SE.type = 'Oakes',
+                         technical = list(theta_lim = c(-6, 6)), verbose = FALSE))
+    expect_equal(extract.mirt(mod, 'logLik'), mll(p_hat), tolerance = 1e-10)
+    se_obs <- sqrt(diag(solve(-hessian(p_hat))))
+    expect_equal(unname(sqrt(diag(vcov(mod)))), se_obs, tolerance = 1e-4)
 
 })
