@@ -208,3 +208,20 @@ test_that('dich', {
                  0, tolerance=1e-2)
 })
 
+
+test_that('M2 with free latent variance', {
+
+    # a Rasch model with a free latent variance and a 1PL with equal slopes and a fixed
+    # variance are the same model, so their limited-information statistics must agree
+    mod1 <- mirt(Science, 1, 'Rasch', verbose=FALSE, TOL=1e-10, optimizer='NR')
+    mod2 <- mirt(Science, 'F = 1-4
+                 CONSTRAIN = (1-4, a1)', itemtype='gpcm', verbose=FALSE, TOL=1e-10,
+                 optimizer='NR')
+    expect_equal(extract.mirt(mod1, 'logLik'), extract.mirt(mod2, 'logLik'), tolerance = 1e-8)
+    fit1 <- M2(mod1, type = 'C2', calcNull = FALSE)
+    fit2 <- M2(mod2, type = 'C2', calcNull = FALSE)
+    expect_equal(fit1$df, fit2$df)
+    expect_equal(fit1$M2, fit2$M2, tolerance = 1e-5)
+    expect_equal(fit1$M2, 31.694, tolerance = 1e-4)
+
+})

@@ -134,6 +134,7 @@ M2 <- function(obj, type="M2*", calcNull = TRUE, quadpts = NULL, theta_lim = c(-
                 estpars <- c(estpars, pars[[i]]@est)
             else estpars <- c(estpars, rep(FALSE, length(pars[[i]]@est)))
         }
+        Theta0 <- NULL
         bfactorlist <- obj@Internals$bfactor
         if(.hasSlot(obj@Model$lrPars, 'beta'))
             stop('Latent regression models not yet supported', call.=FALSE)
@@ -159,8 +160,8 @@ M2 <- function(obj, type="M2*", calcNull = TRUE, quadpts = NULL, theta_lim = c(-
                     Prior <- Prior/sum(Prior)
                 } else {
                     if(QMC){
-                        Theta <- QMC_quad(npts=quadpts, nfact=obj@Model$nfact, random.type=QMC.type)
-                        Theta <- Theta_meanSigma_shift(Theta, gstructgrouppars$gmeans,
+                        Theta0 <- QMC_quad(npts=quadpts, nfact=obj@Model$nfact, random.type=QMC.type)
+                        Theta <- Theta_meanSigma_shift(Theta0, gstructgrouppars$gmeans,
                                                        gstructgrouppars$gcov)
                         Prior <- rep(1/nrow(Theta), nrow(Theta))
                     } else {
@@ -338,7 +339,62 @@ M2 <- function(obj, type="M2*", calcNull = TRUE, quadpts = NULL, theta_lim = c(-
         } else {
             # M2 TODO
         }
+        # Model-implied first and second order moments as a function of the free latent
+        # (Gaussian) group parameters. With quadrature only the prior weights change; with
+        # QMC the nodes move instead, so the item functions are re-evaluated.
+        latent_moments <- function(par, gpars, Theta, Theta0, EIs, PIs){
+            gpars@par[gpars@est] <- par
+            gs <- ExtractGroupPars(gpars)
+            if(is.null(Theta0)){
+                Prior <- mirt_dmvnorm(Theta[ ,seq_len(gpars@nfact), drop=FALSE], gs$gmeans, gs$gcov)
+                Prior <- Prior/sum(Prior)
+            } else {
+                Theta <- Theta_meanSigma_shift(Theta0, gs$gmeans, gs$gcov)
+                if(length(prodlist) > 0L)
+                    Theta <- prodterms(Theta, prodlist)
+                Prior <- rep(1/nrow(Theta), nrow(Theta))
+                nitems <- ncol(EIs)
+                for(i in seq_len(nitems)){
+                    x <- extract.item(obj, i)
+                    Thetastar <- Theta
+                    if(x@nfixedeffects > 0)
+                        Thetastar <- cbind(x@fixed.design[rep(1, nrow(Theta)), , drop=FALSE], Theta)
+                    EIs[,i] <- expected.item(x, Thetastar, min=0L)
+                }
+                if(!is.null(PIs))
+                    PIs <- do.call(cbind, lapply(seq_len(nitems), function(i){
+                        x <- extract.item(obj, i)
+                        Thetastar <- Theta
+                        if(x@nfixedeffects > 0)
+                            Thetastar <- cbind(x@fixed.design[rep(1, nrow(Theta)), , drop=FALSE], Theta)
+                        ProbTrace(x, Thetastar)[ ,-1L, drop=FALSE]
+                    }))
+            }
+            E2 <- crossprod(EIs * Prior, EIs)
+            first <- if(is.null(PIs)) colSums(EIs * Prior) else colSums(PIs * Prior)
+            c(first, E2[lower.tri(E2)])
+        }
         delta <- rbind(delta1, delta2)
+        # Free latent mean/covariance parameters (e.g., COV_11 in a Rasch model) also
+        # change the model-implied moments, so their columns belong in delta. Without
+        # them delta has too few columns while df still subtracts these parameters.
+        gpars <- pars[[nitems+1L]]
+        if(!discrete && !use_dentype_estimate && gpars@dentype == 'Gaussian' && any(gpars@est)){
+            latent_cols <- gpars@parnum[gpars@est] - offset
+            estpars[latent_cols] <- TRUE
+            lpar <- gpars@par[gpars@est]
+            PIs_ <- if(type == "C2") PIs else NULL
+            central <- function(i, h){
+                p1 <- p2 <- lpar
+                p1[i] <- p1[i] + h
+                p2[i] <- p2[i] - h
+                (latent_moments(p1, gpars, Theta, Theta0, EIs, PIs_) -
+                     latent_moments(p2, gpars, Theta, Theta0, EIs, PIs_)) / (2 * h)
+            }
+            # central differences with one Richardson extrapolation step
+            delta[ ,latent_cols] <- vapply(seq_along(lpar), function(i)
+                (4 * central(i, 5e-5) - central(i, 1e-4)) / 3, numeric(nrow(delta)))
+        }
         abcats <- do.call(c, lapply(1:nitems, function(x) rep(x, each=K[x]-1))) - 1L
         abcats2 <- do.call(c, lapply(K, function(x) 2L:x - 1L))
         Xi2els <- if(type == "M2*"){
